@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  lootsy.userservice.api:
+    container_name: Lootsy.UserService.Api
+    build:
+      context: .
+      dockerfile: Lootsy.UserService.Api/Dockerfile
+    image: lootsy.userservice.api
+    ports:
+        - "8080:8080"
+        - "8081:8081"
+  
+  productdb:
+    image: postgres:latest
+    container_name: Lootsy.UserService.Database
+    environment:
+      POSTGRES_DB: Lootsy.UserService
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 123shm321
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    ports:
+      - "5454:5432"
+    
+volumes:
+  db_data:
