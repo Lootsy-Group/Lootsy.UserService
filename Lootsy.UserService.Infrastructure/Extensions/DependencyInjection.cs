@@ -4,6 +4,11 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
+using System.Net.Mail;
+using Lootsy.UserService.Application.Configurations;
+using System.Net;
+using Lootsy.UserService.Application.Interfaces;
+using Lootsy.UserService.Infrastructure.Email;
 
 namespace Lootsy.UserService.Infrastructure.Extensions;
 
@@ -17,6 +22,7 @@ public static class DependencyInjection
         });
 
         AddIdentity(services);
+        AddEmail(services, configuration);
 
         return services;
     }
@@ -45,5 +51,27 @@ public static class DependencyInjection
         {
             options.TokenLifespan = TimeSpan.FromHours(12);
         });
+    }
+
+    private static void AddEmail(IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection(EmailOptions.SectionName);
+        var emailOptions = section.Get<EmailOptions>();
+
+        if (emailOptions is null)
+        {
+            throw new InvalidOperationException("Email configuration settings did not load correctly.");
+        }
+
+        services.AddFluentEmail(emailOptions.FromEmail, emailOptions.FromName)
+            .AddRazorRenderer()
+            .AddSmtpSender(new SmtpClient
+            {
+                Port = emailOptions.Port,
+                Credentials= new NetworkCredential(emailOptions.FromEmail, emailOptions.Password),
+                EnableSsl = emailOptions.EnableSsl,
+            });
+
+        services.AddScoped<IEmailService, EmailService>();
     }
 }
