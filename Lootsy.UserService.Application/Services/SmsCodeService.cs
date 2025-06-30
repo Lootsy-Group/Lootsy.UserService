@@ -1,32 +1,59 @@
 ﻿using Lootsy.UserService.Application.Interfaces;
-using Microsoft.Extensions.Caching.Memory;
+using Lootsy.UserService.Application.Models;
+using Microsoft.Extensions.Caching.Distributed;
 
 namespace Lootsy.UserService.Application.Services;
 
 internal sealed class SmsCodeService : ISmsCodeService
 {
-    private readonly IMemoryCache _memoryCache;
-    private readonly TimeSpan _expirationTime = TimeSpan.FromMinutes(5);
+    private readonly IDistributedCache _distributedCache;
+    private const int ExpirationMinutes = 5;
 
-    public SmsCodeService(IMemoryCache memoryCache)
+    public SmsCodeService(IDistributedCache distributedCache)
     {
-        _memoryCache = memoryCache;
+        _distributedCache = distributedCache ?? throw new ArgumentNullException(nameof(distributedCache));
     }
 
-    public void SaveCode(string email, string smsCode)
+    public async Task StoreAsync(string email, RegisterTempData data, string code, CancellationToken cancellationToken = default)
     {
-        _memoryCache.Set(email, smsCode, _expirationTime);
+        var combined = new RegisterTempWrapper
+        {
+            Data = data,
+            Code = code
+        };
+
+        var json = System.Text.Json.JsonSerializer.Serialize(combined);
+
+        var options = new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(ExpirationMinutes)
+        };
+
+        await _distributedCache.SetStringAsync(GetKey(email), json, options, cancellationToken).ConfigureAwait(false);
     }
 
-    public string GetCode(string email)
+    public async Task<(RegisterTempData? Data, string? Code)> GetAsync(string email, CancellationToken cancellationToken = default)
     {
-        _memoryCache.TryGetValue(email, out string smsCode);
-        return smsCode;
+        var json = await _distributedCache.GetStringAsync(GetKey(email), cancellationToken);
+
+        if (string.IsNullOrEmpty(json))
+            return (null, null);
+
+        var obj = System.Text.Json.JsonSerializer.Deserialize<RegisterTempWrapper>(json);
+
+        return (obj.Data, obj.Code);
     }
 
-    public bool ValidateCode(string email, string enteredCode)
+    public async Task RemoveAsync(string email, CancellationToken cancellationToken = default)
     {
-        var storedCode = GetCode(email);
-        return storedCode != null && storedCode == enteredCode;
+        await _distributedCache.RemoveAsync(GetKey(email), cancellationToken);
+    }
+
+    private static string GetKey(string email) => $"auth:register:{email}";
+
+    private class RegisterTempWrapper
+    {
+        public RegisterTempData Data { get; set; } = default!;
+        public string Code { get; set; } = default!;
     }
 }

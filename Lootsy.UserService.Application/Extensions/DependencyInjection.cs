@@ -19,16 +19,25 @@ public static class DependencyInjection
         //services.AddTransient(typeof(IPipelineBehavior<,>), typeof(ValidationBehavior<,>));
 
         ImplementDI(services);
+        RegisterRadis(services, configuration);
 
         return services;
     }
 
     public static IServiceCollection ImplementDI(this IServiceCollection services)
     {
-        // services.AddScoped<ICurrentUserService, CurrentUserService>();
-        // services.AddScoped<IJwtTokenService, JwtTokenService>();
-
+        services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<ISmsCodeService, SmsCodeService>();
+
+        return services;
+    }
+
+    public static IServiceCollection RegisterRadis(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddStackExchangeRedisCache(options =>
+        {
+            options.Configuration = configuration.GetConnectionString("RedisConnection");
+        });
 
         return services;
     }

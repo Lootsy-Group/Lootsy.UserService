@@ -3,6 +3,7 @@ using MediatR;
 
 namespace Lootsy.UserService.Application.Features.Commands;
 
-public record SendEmailCodeCommand(
-    string Email
+public record ConfirmEmailCodeCommand(
+    string Email,
+    string Code
     ) : IRequest<Result>;
